@@ -1,0 +1,14 @@
+# Large datasets
+data/debt_data_100k.csv
+
+# Model files
+model/debt_model.pkl
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+
+# Streamlit
+.streamlit/
