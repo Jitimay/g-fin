@@ -6,6 +6,8 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 import pickle
 import os
+import requests
+import json
 
 # Page config
 st.set_page_config(
@@ -99,6 +101,61 @@ st.markdown("""
         50% { opacity: 0.8; }
         100% { opacity: 1; }
     }
+    .chat-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .chat-container {
+        background: linear-gradient(135deg, #f0f4f8, #ffffff);
+        border-radius: 24px;
+        width: 500px;
+        max-height: 600px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+        border: 1px solid #e2e8f0;
+    }
+    .chat-header {
+        background: linear-gradient(135deg, #667eea, #764ba2);
+        color: white;
+        padding: 20px;
+        text-align: center;
+        font-weight: bold;
+        font-size: 1.2rem;
+    }
+    .chat-body {
+        padding: 20px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .user-message {
+        background: #e3f2fd;
+        padding: 12px 16px;
+        border-radius: 18px;
+        margin: 10px 0;
+        margin-left: 20px;
+        border: 1px solid #bbdefb;
+    }
+    .ai-message {
+        background: #f5f5f5;
+        padding: 12px 16px;
+        border-radius: 18px;
+        margin: 10px 0;
+        margin-right: 20px;
+        border: 1px solid #e0e0e0;
+    }
+    .chat-input {
+        padding: 20px;
+        border-top: 1px solid #e2e8f0;
+        background: #fafafa;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -117,6 +174,127 @@ def get_risk_level(prob):
         return "🟡 WARNING", "risk-warning", "#ffa502"
     else:
         return "🟢 STABLE", "risk-stable", "#2ed573"
+
+def chat_with_gemini(question, context_data):
+    api_key = "AIzaSyACpvG8dlDWZu2DpIJlar2f10BJEjc5noU"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
+    
+    # Create context from current data
+    high_risk_countries = context_data[context_data['default_prob'] >= 0.7]['country'].tolist()
+    context = f"""You are a debt crisis analyst AI assistant. Answer questions about African sovereign debt risk.
+
+Current data context:
+- Total countries analyzed: {len(context_data)}
+- High risk countries: {len(high_risk_countries)}
+- Countries at risk: {', '.join(high_risk_countries[:5])}
+
+Key risk factors: Political stability, Debt-to-GDP ratio, Inflation, Bond yield spreads.
+Answer concisely and focus on debt crisis insights."""
+    
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": f"{context}\n\nUser question: {question}\n\nProvide a helpful response about debt crisis analysis."
+            }]
+        }],
+        "generationConfig": {
+            "temperature": 0.7,
+            "maxOutputTokens": 500
+        }
+    }
+    
+    try:
+        response = requests.post(
+            url, 
+            json=payload, 
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            if 'candidates' in result and len(result['candidates']) > 0:
+                return result['candidates'][0]['content']['parts'][0]['text']
+            else:
+                return "I'm having trouble generating a response. Please try rephrasing your question."
+        else:
+            return f"API Error: {response.status_code}. Please check the API key or try again later."
+            
+    except requests.exceptions.Timeout:
+        return "Request timed out. Please try again."
+    except Exception as e:
+        return f"Connection error: {str(e)[:100]}. Please check your internet connection."
+
+@st.dialog("🤖 Debt Crisis AI Assistant", width="large")
+def show_chat_popup(predictions):
+    st.markdown("""
+    <style>
+    .chat-container {
+        background: linear-gradient(135deg, #f0f4f8, #ffffff);
+        border-radius: 15px;
+        padding: 20px;
+        margin: 10px 0;
+    }
+    .ai-message {
+        background: #f5f5f5;
+        padding: 15px;
+        border-radius: 15px;
+        margin: 10px 0;
+        border-left: 4px solid #667eea;
+    }
+    .user-message {
+        background: #e3f2fd;
+        padding: 15px;
+        border-radius: 15px;
+        margin: 10px 0;
+        border-left: 4px solid #2196f3;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Welcome message
+    st.markdown("""
+    <div class="ai-message">
+        👋 Hi! I'm your debt crisis analyst. Ask me about:
+        <br>• Country risk factors
+        <br>• Default predictions  
+        <br>• Economic indicators
+        <br>• Investment recommendations
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Chat history
+    if 'chat_history' not in st.session_state:
+        st.session_state.chat_history = []
+    
+    # Display chat history
+    with st.container(height=400):
+        for message in st.session_state.chat_history:
+            if message['role'] == 'user':
+                st.markdown(f'<div class="user-message">👤 {message["content"]}</div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="ai-message">🤖 {message["content"]}</div>', unsafe_allow_html=True)
+    
+    # Chat input with form to prevent dialog closing
+    with st.form("chat_form", clear_on_submit=True):
+        user_question = st.text_input("Ask about debt risks:", placeholder="Why is Ghana at high risk?")
+        submitted = st.form_submit_button("Send", use_container_width=True, type="primary")
+        
+        if submitted and user_question:
+            # Add user message
+            st.session_state.chat_history.append({"role": "user", "content": user_question})
+            
+            # Get AI response
+            with st.spinner("🤔 AI is thinking..."):
+                response = chat_with_gemini(user_question, predictions)
+                st.session_state.chat_history.append({"role": "ai", "content": response})
+    
+    if st.button("Clear Chat", use_container_width=True):
+        st.session_state.chat_history = []
+
+def show_chatbot(predictions):
+    if st.sidebar.button("🤖 AI Assistant", use_container_width=True):
+        show_chat_popup(predictions)
 
 def predict_country_risk(df, model_data):
     model = model_data['model']
@@ -215,6 +393,10 @@ def main():
         ["🔴 HIGH RISK", "🟡 WARNING", "🟢 STABLE"],
         default=["🔴 HIGH RISK", "🟡 WARNING", "🟢 STABLE"]
     )
+    
+    # Add chatbot
+    st.sidebar.markdown("---")
+    show_chatbot(predictions)
     
     # Main metrics
     col1, col2, col3, col4 = st.columns(4)
