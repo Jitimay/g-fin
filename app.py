@@ -8,6 +8,10 @@ import pickle
 import os
 import requests
 import json
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Page config
 st.set_page_config(
@@ -176,7 +180,7 @@ def get_risk_level(prob):
         return "🟢 STABLE", "risk-stable", "#2ed573"
 
 def chat_with_gemini(question, context_data):
-    api_key = "AIzaSyACpvG8dlDWZu2DpIJlar2f10BJEjc5noU"
+    api_key = os.getenv("GEMINI_API_KEY", "your-api-key-here")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
     
     # Create context from current data

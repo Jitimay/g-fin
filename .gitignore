@@ -4,6 +4,9 @@ data/debt_data_100k.csv
 # Model files
 model/debt_model.pkl
 
+# Environment variables (API keys)
+.env
+
 # Python
 __pycache__/
 *.pyc
