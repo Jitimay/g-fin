@@ -2,6 +2,9 @@ streamlit
 pandas
 numpy
 scikit-learn
+xgboost
 plotly
 requests
 python-dotenv
+transformers
+torch

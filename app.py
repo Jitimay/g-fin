@@ -3,583 +3,240 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import pickle
 import os
-import requests
-import json
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Page config
 st.set_page_config(
-    page_title="Debt Radar - AI Crisis Prediction",
-    page_icon="🎯",
+    page_title="G-FIN - Global Financial Immunity Network",
+    page_icon="🛡️",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Enhanced CSS
+# CSS styling
 st.markdown("""
 <style>
-    .main {
-        background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
-        color: #ffffff;
-    }
-    .stMetric {
+    .main { background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%); color: #ffffff; }
+    .stMetric { 
         background: linear-gradient(145deg, #f8f9fa, #e9ecef) !important;
-        padding: 20px !important;
-        border-radius: 15px !important;
+        padding: 20px !important; border-radius: 15px !important;
         border: 2px solid #4a90e2 !important;
         box-shadow: 0 8px 32px rgba(74, 144, 226, 0.3) !important;
         color: #212529 !important;
     }
-    .stMetric label {
-        color: #495057 !important;
-        font-weight: bold !important;
-    }
-    .stMetric [data-testid="metric-container"] > div {
-        color: #212529 !important;
-    }
-    .metric-container {
-        display: flex;
-        justify-content: space-around;
-        margin: 20px 0;
-    }
-    .risk-high {
-        color: #ff4757;
-        font-weight: bold;
-        text-shadow: 0 0 10px #ff4757;
-    }
-    .risk-warning {
-        color: #ffa502;
-        font-weight: bold;
-        text-shadow: 0 0 10px #ffa502;
-    }
-    .risk-stable {
-        color: #2ed573;
-        font-weight: bold;
-        text-shadow: 0 0 10px #2ed573;
-    }
-    .country-card {
-        background: linear-gradient(145deg, #2d3748, #4a5568);
-        padding: 20px;
-        border-radius: 15px;
-        margin: 10px 0;
-        border-left: 4px solid #3182ce;
-    }
-    .sidebar .sidebar-content {
-        background: linear-gradient(180deg, #1a202c, #2d3748);
-    }
-    h1 {
-        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        text-align: center;
-        font-size: 3rem;
-        margin-bottom: 0;
-    }
-    .subtitle {
-        text-align: center;
-        color: #a0aec0;
-        font-size: 1.2rem;
-        margin-bottom: 2rem;
-    }
-    .alert-banner {
-        background: linear-gradient(90deg, #e74c3c, #c0392b);
-        padding: 20px;
-        border-radius: 15px;
-        text-align: center;
-        margin: 20px 0;
-        border: 2px solid #ff4757;
-        box-shadow: 0 0 30px rgba(231, 76, 60, 0.5);
-        animation: pulse 2s infinite;
-        color: #ffffff;
-        font-weight: bold;
-        font-size: 1.1rem;
-    }
-    @keyframes pulse {
-        0% { opacity: 1; }
-        50% { opacity: 0.8; }
-        100% { opacity: 1; }
-    }
-    .chat-modal {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        z-index: 9999;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-    }
-    .chat-container {
-        background: linear-gradient(135deg, #f0f4f8, #ffffff);
-        border-radius: 24px;
-        width: 500px;
-        max-height: 600px;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-        overflow: hidden;
-        border: 1px solid #e2e8f0;
-    }
-    .chat-header {
-        background: linear-gradient(135deg, #667eea, #764ba2);
-        color: white;
-        padding: 20px;
-        text-align: center;
-        font-weight: bold;
-        font-size: 1.2rem;
-    }
-    .chat-body {
-        padding: 20px;
-        max-height: 400px;
-        overflow-y: auto;
-    }
-    .user-message {
-        background: #e3f2fd;
-        padding: 12px 16px;
-        border-radius: 18px;
-        margin: 10px 0;
-        margin-left: 20px;
-        border: 1px solid #bbdefb;
-    }
-    .ai-message {
-        background: #f5f5f5;
-        padding: 12px 16px;
-        border-radius: 18px;
-        margin: 10px 0;
-        margin-right: 20px;
-        border: 1px solid #e0e0e0;
-    }
-    .chat-input {
-        padding: 20px;
-        border-top: 1px solid #e2e8f0;
-        background: #fafafa;
-    }
+    .immunity-score { font-size: 2em; font-weight: bold; text-align: center; }
+    .stable { color: #28a745; }
+    .fragile { color: #ffc107; }
+    .high-risk { color: #dc3545; }
 </style>
 """, unsafe_allow_html=True)
 
 @st.cache_data
 def load_data():
-    return pd.read_csv('data/debt_data_100k.csv')
+    """Load G-FIN data"""
+    return pd.read_csv('data/gfin_real_data.csv')
 
+@st.cache_resource
 def load_model():
-    with open('model/debt_model.pkl', 'rb') as f:
+    """Load G-FIN model"""
+    with open('model/gfin_model.pkl', 'rb') as f:
         return pickle.load(f)
 
-def get_risk_level(prob):
-    if prob >= 0.7:
-        return "🔴 HIGH RISK", "risk-high", "#ff4757"
-    elif prob >= 0.4:
-        return "🟡 WARNING", "risk-warning", "#ffa502"
+def calculate_immunity_score(model, features, country_data):
+    """Calculate Financial Immunity Score"""
+    X = country_data[features].values.reshape(1, -1)
+    prob = model.predict_proba(X)[0, 1]
+    return 100 * (1 - prob)
+
+def get_risk_level(score):
+    """Get risk level from immunity score"""
+    if score >= 80:
+        return "STABLE", "stable"
+    elif score >= 50:
+        return "FRAGILE", "fragile"
     else:
-        return "🟢 STABLE", "risk-stable", "#2ed573"
+        return "HIGH RISK", "high-risk"
 
-def chat_with_gemini(question, context_data):
-    api_key = os.getenv("GEMINI_API_KEY", "your-api-key-here")
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={api_key}"
-    
-    # Create context from current data
-    high_risk_countries = context_data[context_data['default_prob'] >= 0.7]['country'].tolist()
-    context = f"""You are a debt crisis analyst AI assistant. Answer questions about African sovereign debt risk.
+def send_alert_simulation(country, score):
+    """Simulate alert sending"""
+    risk_level, _ = get_risk_level(score)
+    if score < 50:
+        st.warning(f"🚨 G-FIN ALERT: {country} - Financial Immunity Score: {score:.1f} ({risk_level})")
+        return f"Alert sent for {country}: Score {score:.1f}"
+    return None
 
-Current data context:
-- Total countries analyzed: {len(context_data)}
-- High risk countries: {len(high_risk_countries)}
-- Countries at risk: {', '.join(high_risk_countries[:5])}
-
-Key risk factors: Political stability, Debt-to-GDP ratio, Inflation, Bond yield spreads.
-Answer concisely and focus on debt crisis insights."""
-    
-    payload = {
-        "contents": [{
-            "parts": [{
-                "text": f"{context}\n\nUser question: {question}\n\nProvide a helpful response about debt crisis analysis."
-            }]
-        }],
-        "generationConfig": {
-            "temperature": 0.7,
-            "maxOutputTokens": 500
-        }
-    }
-    
-    try:
-        response = requests.post(
-            url, 
-            json=payload, 
-            headers={"Content-Type": "application/json"},
-            timeout=10
-        )
-        
-        if response.status_code == 200:
-            result = response.json()
-            if 'candidates' in result and len(result['candidates']) > 0:
-                return result['candidates'][0]['content']['parts'][0]['text']
-            else:
-                return "I'm having trouble generating a response. Please try rephrasing your question."
-        else:
-            return f"API Error: {response.status_code}. Please check the API key or try again later."
-            
-    except requests.exceptions.Timeout:
-        return "Request timed out. Please try again."
-    except Exception as e:
-        return f"Connection error: {str(e)[:100]}. Please check your internet connection."
-
-@st.dialog("🤖 Debt Crisis AI Assistant", width="large")
-def show_chat_popup(predictions):
-    st.markdown("""
-    <style>
-    .chat-container {
-        background: linear-gradient(135deg, #f0f4f8, #ffffff);
-        border-radius: 15px;
-        padding: 20px;
-        margin: 10px 0;
-    }
-    .ai-message {
-        background: #f5f5f5;
-        padding: 15px;
-        border-radius: 15px;
-        margin: 10px 0;
-        border-left: 4px solid #667eea;
-    }
-    .user-message {
-        background: #e3f2fd;
-        padding: 15px;
-        border-radius: 15px;
-        margin: 10px 0;
-        border-left: 4px solid #2196f3;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Welcome message
-    st.markdown("""
-    <div class="ai-message">
-        👋 Hi! I'm your debt crisis analyst. Ask me about:
-        <br>• Country risk factors
-        <br>• Default predictions  
-        <br>• Economic indicators
-        <br>• Investment recommendations
-    </div>
-    """, unsafe_allow_html=True)
-    
-    # Chat history
-    if 'chat_history' not in st.session_state:
-        st.session_state.chat_history = []
-    
-    # Display chat history
-    with st.container(height=400):
-        for message in st.session_state.chat_history:
-            if message['role'] == 'user':
-                st.markdown(f'<div class="user-message">👤 {message["content"]}</div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="ai-message">🤖 {message["content"]}</div>', unsafe_allow_html=True)
-    
-    # Chat input with form to prevent dialog closing
-    with st.form("chat_form", clear_on_submit=True):
-        user_question = st.text_input("Ask about debt risks:", placeholder="Why is Ghana at high risk?")
-        submitted = st.form_submit_button("Send", use_container_width=True, type="primary")
-        
-        if submitted and user_question:
-            # Add user message
-            st.session_state.chat_history.append({"role": "user", "content": user_question})
-            
-            # Get AI response
-            with st.spinner("🤔 AI is thinking..."):
-                response = chat_with_gemini(user_question, predictions)
-                st.session_state.chat_history.append({"role": "ai", "content": response})
-    
-    if st.button("Clear Chat", use_container_width=True):
-        st.session_state.chat_history = []
-
-def show_chatbot(predictions):
-    if st.sidebar.button("🤖 AI Assistant", use_container_width=True):
-        show_chat_popup(predictions)
-
-def predict_country_risk(df, model_data):
-    model = model_data['model']
-    features = model_data['features']
-    
-    latest_data = df.groupby('country').last().reset_index()
-    X = latest_data[features]
-    probs = model.predict_proba(X)[:, 1]
-    
-    latest_data['default_prob'] = probs
-    latest_data['risk_level'] = latest_data['default_prob'].apply(lambda x: get_risk_level(x)[0])
-    latest_data['risk_color'] = latest_data['default_prob'].apply(lambda x: get_risk_level(x)[2])
-    
-    return latest_data
-
-def create_risk_widget(prob, country):
-    risk_text, risk_class, risk_color = get_risk_level(prob)
-    
-    # Fix progress width calculation
-    progress_width = max(5, int(prob * 100))  # Minimum 5% width for visibility
-    
-    widget_html = f"""
-    <div style="
-        background: linear-gradient(145deg, #2a2a2a, #3a3a3a);
-        padding: 25px;
-        border-radius: 15px;
-        border: 2px solid {risk_color};
-        text-align: center;
-        margin: 10px 0;
-        box-shadow: 0 0 20px {risk_color}40;
-    ">
-        <h2 style="color: {risk_color}; margin: 0;">{country}</h2>
-        <h1 style="color: {risk_color}; margin: 10px 0; font-size: 3rem;">{prob:.0%}</h1>
-        <p style="color: {risk_color}; font-size: 1.2rem; margin: 0;">{risk_text}</p>
-        
-        <div style="
-            background: #1a1a1a;
-            border-radius: 10px;
-            height: 20px;
-            margin: 15px 0;
-            overflow: hidden;
-            border: 1px solid #444;
-        ">
-            <div style="
-                background: linear-gradient(90deg, {risk_color}, {risk_color}aa);
-                height: 100%;
-                width: {progress_width}%;
-                border-radius: 10px;
-                animation: fillBar 1s ease-out;
-            "></div>
-        </div>
-        
-        <p style="color: #ccc; margin: 0; font-size: 0.9rem;">Risk Level: {prob:.1%}</p>
-    </div>
-    
-    <style>
-    @keyframes fillBar {{
-        from {{ width: 0%; }}
-        to {{ width: {progress_width}%; }}
-    }}
-    </style>
-    """
-    return widget_html
-
+# Main app
 def main():
-    # Header
-    st.markdown("<h1>🎯 DEBT RADAR</h1>", unsafe_allow_html=True)
-    st.markdown("<p class='subtitle'>AI-Powered Sovereign Debt Crisis Prediction for Africa</p>", unsafe_allow_html=True)
+    st.title("🛡️ G-FIN - Global Financial Immunity Network")
+    st.markdown("**AI-Powered Financial Crisis Prediction System**")
+    st.markdown("*Système immunitaire financier mondial qui prédit les crises et attribue un Financial Immunity Score*")
+    st.markdown("**Score Range**: 80-100 (Stable) | 50-79 (Fragile) | 0-49 (High Risk)")
     
     # Load data and model
     df = load_data()
-    
-    if not os.path.exists('model/debt_model.pkl'):
-        st.error("🚨 Model not found. Please run: `python train_model.py`")
-        return
-    
     model_data = load_model()
-    predictions = predict_country_risk(df, model_data)
-    
-    # Alert banner for high-risk countries
-    high_risk_countries = predictions[predictions['default_prob'] >= 0.7]['country'].tolist()
-    if high_risk_countries:
-        st.markdown(f"""
-        <div class='alert-banner'>
-            🚨 CRISIS ALERT: {len(high_risk_countries)} countries at HIGH RISK - {', '.join(high_risk_countries[:3])}
-        </div>
-        """, unsafe_allow_html=True)
+    model = model_data['model']
+    features = model_data['features']
     
     # Sidebar
-    st.sidebar.markdown("## 🎛️ Control Panel")
-    selected_country = st.sidebar.selectbox("🌍 Select Country", predictions['country'].unique())
+    st.sidebar.header("🎯 G-FIN Controls")
     
-    # Risk filter
-    risk_filter = st.sidebar.multiselect(
-        "🎯 Filter by Risk Level",
-        ["🔴 HIGH RISK", "🟡 WARNING", "🟢 STABLE"],
-        default=["🔴 HIGH RISK", "🟡 WARNING", "🟢 STABLE"]
-    )
+    # Country selection
+    countries = df['country'].unique()
+    selected_country = st.sidebar.selectbox("Select Country", countries)
     
-    # Add chatbot
-    st.sidebar.markdown("---")
-    show_chatbot(predictions)
+    # Year selection
+    years = sorted(df['year'].unique())
+    selected_year = st.sidebar.selectbox("Select Year", years, index=len(years)-1)
     
-    # Main metrics
-    col1, col2, col3, col4 = st.columns(4)
+    # Get country data
+    country_data = df[(df['country'] == selected_country) & (df['year'] == selected_year)]
     
-    high_risk = len(predictions[predictions['default_prob'] >= 0.7])
-    warning = len(predictions[(predictions['default_prob'] >= 0.4) & (predictions['default_prob'] < 0.7)])
-    stable = len(predictions[predictions['default_prob'] < 0.4])
-    total_countries = len(predictions)
-    
-    with col1:
-        st.metric("🔴 High Risk", high_risk, delta=f"{high_risk/total_countries:.1%}")
-    with col2:
-        st.metric("🟡 Warning", warning, delta=f"{warning/total_countries:.1%}")
-    with col3:
-        st.metric("🟢 Stable", stable, delta=f"{stable/total_countries:.1%}")
-    with col4:
-        st.metric("📊 Total Countries", total_countries)
-    
-    # Main dashboard
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("🗺️ African Risk Map")
+    if not country_data.empty:
+        country_data = country_data.iloc[0]
         
-        # Enhanced choropleth map
-        fig = px.choropleth(
-            predictions,
-            locations='country',
+        # Calculate immunity score
+        immunity_score = calculate_immunity_score(model, features, country_data)
+        risk_level, css_class = get_risk_level(immunity_score)
+        
+        # Main dashboard
+        col1, col2, col3 = st.columns([2, 1, 1])
+        
+        with col1:
+            st.markdown(f"""
+            <div class="immunity-score {css_class}">
+                Financial Immunity Score: {immunity_score:.1f}
+            </div>
+            <div style="text-align: center; font-size: 1.2em; margin-top: 10px;">
+                {selected_country} ({selected_year}) - {risk_level}
+            </div>
+            """, unsafe_allow_html=True)
+        
+        with col2:
+            if st.button("🚨 Send Alert"):
+                alert_msg = send_alert_simulation(selected_country, immunity_score)
+                if alert_msg:
+                    st.success(alert_msg)
+                else:
+                    st.info("No alert needed - country is stable")
+        
+        with col3:
+            st.metric("Default Risk", f"{(100-immunity_score):.1f}%")
+        
+        # Key indicators
+        st.subheader("📊 Key Financial Indicators")
+        
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Debt/GDP", f"{country_data['debt_to_gdp']:.1f}%")
+            st.metric("Inflation", f"{country_data['inflation']:.1f}%")
+        with col2:
+            st.metric("FX Reserves", f"${country_data['fx_reserves']:.1f}B")
+            st.metric("GDP Growth", f"{country_data['gdp_growth']:.1f}%")
+        with col3:
+            st.metric("Export Revenue", f"${country_data['export_revenue']:.1f}B")
+            st.metric("Interest Rate", f"{country_data['interest_rate']:.1f}%")
+        with col4:
+            st.metric("Political Stability", f"{country_data['political_stability']:.2f}")
+            st.metric("Bond Spread", f"{country_data['bond_yield_spread']:.1f}%")
+        
+        # Feature importance
+        st.subheader("🔍 Model Explainability")
+        importance_df = pd.DataFrame({
+            'Feature': features,
+            'Importance': model.feature_importances_
+        }).sort_values('Importance', ascending=True)
+        
+        fig = px.bar(importance_df, x='Importance', y='Feature', orientation='h',
+                     title="Feature Importance in Crisis Prediction")
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Historical trends
+        st.subheader("📈 Historical Trends")
+        country_history = df[df['country'] == selected_country].sort_values('year')
+        
+        if len(country_history) > 1:
+            # Calculate historical immunity scores
+            historical_scores = []
+            for _, row in country_history.iterrows():
+                score = calculate_immunity_score(model, features, row)
+                historical_scores.append(score)
+            
+            country_history = country_history.copy()
+            country_history['immunity_score'] = historical_scores
+            
+            fig = px.line(country_history, x='year', y='immunity_score',
+                         title=f"{selected_country} - Financial Immunity Score Over Time")
+            fig.add_hline(y=80, line_dash="dash", line_color="green", annotation_text="Stable Threshold")
+            fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Fragile Threshold")
+            st.plotly_chart(fig, use_container_width=True)
+        
+        # Global overview
+        st.subheader("🌍 Global Financial Immunity Overview")
+        
+        # Calculate scores for all countries in latest year
+        latest_year = df['year'].max()
+        latest_data = df[df['year'] == latest_year]
+        
+        global_scores = []
+        for _, row in latest_data.iterrows():
+            score = calculate_immunity_score(model, features, row)
+            global_scores.append({
+                'Country': row['country'],
+                'Immunity_Score': score,
+                'Risk_Level': get_risk_level(score)[0]
+            })
+        
+        global_df = pd.DataFrame(global_scores).sort_values('Immunity_Score', ascending=False)
+        
+        # World Map with Financial Immunity Scores
+        st.subheader("🗺️ World Financial Immunity Map")
+        
+        # Create world map
+        fig_map = px.choropleth(
+            global_df,
+            locations='Country',
+            color='Immunity_Score',
             locationmode='country names',
-            color='default_prob',
-            hover_name='country',
-            hover_data={
-                'default_prob': ':.1%',
-                'debt_to_gdp': ':.1f',
-                'political_stability': ':.1f'
-            },
-            color_continuous_scale=['#2ed573', '#ffa502', '#ff4757'],
-            range_color=[0, 1],
-            title="Default Risk Probability by Country"
+            color_continuous_scale=[
+                [0.0, '#dc3545'],    # Red for high risk (0-49)
+                [0.5, '#ffc107'],    # Yellow for fragile (50-79)
+                [1.0, '#28a745']     # Green for stable (80-100)
+            ],
+            range_color=[0, 100],
+            title=f"Financial Immunity Scores by Country ({latest_year})",
+            labels={'Immunity_Score': 'Financial Immunity Score'},
+            hover_data={'Risk_Level': True}
         )
-        fig.update_layout(
+        
+        fig_map.update_layout(
             geo=dict(
-                scope='africa',
-                bgcolor='rgba(0,0,0,0)',
                 showframe=False,
                 showcoastlines=True,
                 projection_type='equirectangular'
             ),
-            height=500,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font={'color': 'white'},
-            title_font_color='white'
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        st.subheader("⚡ Live Risk Monitor")
-        country_data = predictions[predictions['country'] == selected_country].iloc[0]
-        prob = country_data['default_prob']
-        risk_text, risk_class, risk_color = get_risk_level(prob)
-        
-        # Simple risk display with Streamlit components
-        st.markdown(f"### {selected_country}")
-        st.markdown(f"<h1 style='color: {risk_color}; text-align: center;'>{prob:.0%}</h1>", unsafe_allow_html=True)
-        st.markdown(f"<p style='color: {risk_color}; text-align: center; font-size: 1.2rem;'>{risk_text}</p>", unsafe_allow_html=True)
-        
-        # Progress bar
-        st.progress(prob)
-        st.caption(f"Risk Level: {prob:.1%}")
-        
-        # Key indicators
-        st.markdown("### 📊 Key Indicators")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            st.metric("💰 Debt/GDP", f"{country_data['debt_to_gdp']:.1f}%")
-            st.metric("📈 Inflation", f"{country_data['inflation']:.1f}%")
-        with col_b:
-            st.metric("🏛️ Stability", f"{country_data['political_stability']:.1f}")
-            st.metric("💱 FX Reserves", f"${country_data['fx_reserves']:.1f}B")
-    
-    # Detailed analysis
-    st.subheader(f"📈 {selected_country} Deep Analysis")
-    
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        # Historical trends
-        country_history = df[df['country'] == selected_country].tail(10)
-        
-        fig = make_subplots(
-            rows=2, cols=2,
-            subplot_titles=('Debt Trend', 'Inflation', 'Political Stability', 'Bond Spreads'),
-            specs=[[{"secondary_y": False}, {"secondary_y": False}],
-                   [{"secondary_y": False}, {"secondary_y": False}]]
+            title_x=0.5,
+            height=500
         )
         
-        fig.add_trace(go.Scatter(x=country_history['year'], y=country_history['debt_to_gdp'],
-                                mode='lines+markers', name='Debt-to-GDP', line=dict(color='#ff4757')), row=1, col=1)
-        fig.add_trace(go.Scatter(x=country_history['year'], y=country_history['inflation'],
-                                mode='lines+markers', name='Inflation', line=dict(color='#ffa502')), row=1, col=2)
-        fig.add_trace(go.Scatter(x=country_history['year'], y=country_history['political_stability'],
-                                mode='lines+markers', name='Stability', line=dict(color='#2ed573')), row=2, col=1)
-        fig.add_trace(go.Scatter(x=country_history['year'], y=country_history['bond_yield_spread'],
-                                mode='lines+markers', name='Bond Spread', line=dict(color='#3742fa')), row=2, col=2)
+        st.plotly_chart(fig_map, use_container_width=True)
         
-        fig.update_layout(
-            height=500,
-            showlegend=False,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font={'color': 'white'}
-        )
-        st.plotly_chart(fig, use_container_width=True)
-    
-    with col2:
-        # Feature importance
-        st.write("🎯 **Risk Factor Analysis**")
-        importance_df = pd.DataFrame({
-            'Factor': model_data['features'],
-            'Impact': model_data['model'].feature_importances_
-        }).sort_values('Impact', ascending=True)
+        # Color mapping for bar chart
+        color_map = {'STABLE': '#28a745', 'FRAGILE': '#ffc107', 'HIGH RISK': '#dc3545'}
         
-        fig = px.bar(
-            importance_df,
-            x='Impact',
-            y='Factor',
-            orientation='h',
-            color='Impact',
-            color_continuous_scale=['#2ed573', '#ffa502', '#ff4757'],
-            title="Model Feature Importance"
-        )
-        fig.update_layout(
-            height=400,
-            paper_bgcolor='rgba(0,0,0,0)',
-            plot_bgcolor='rgba(0,0,0,0)',
-            font={'color': 'white'},
-            title_font_color='white'
-        )
+        fig = px.bar(global_df, x='Country', y='Immunity_Score', color='Risk_Level',
+                     color_discrete_map=color_map,
+                     title=f"Global Financial Immunity Scores ({latest_year})")
+        fig.add_hline(y=80, line_dash="dash", line_color="green", annotation_text="Stable Threshold")
+        fig.add_hline(y=50, line_dash="dash", line_color="orange", annotation_text="Fragile Threshold")
         st.plotly_chart(fig, use_container_width=True)
         
-        # Top risk factors for selected country
-        st.write("🔍 **Key Risk Drivers:**")
-        top_factors = importance_df.tail(3)
-        for i, (_, row) in enumerate(top_factors.iterrows(), 1):
-            factor_value = country_data[row['Factor']]
-            st.write(f"{i}. **{row['Factor'].replace('_', ' ').title()}**: {factor_value:.1f} ({row['Impact']:.1%} impact)")
-    
-    # Risk table with enhanced styling
-    st.subheader("📋 Country Risk Dashboard")
-    
-    # Filter data based on selection
-    filtered_data = predictions[predictions['risk_level'].isin(risk_filter)]
-    
-    # Enhanced dataframe
-    display_df = filtered_data[['country', 'default_prob', 'risk_level', 'debt_to_gdp', 
-                               'political_stability', 'inflation']].copy()
-    display_df['default_prob'] = display_df['default_prob'].apply(lambda x: f"{x:.1%}")
-    display_df.columns = ['Country', 'Default Risk', 'Status', 'Debt/GDP %', 'Stability', 'Inflation %']
-    
-    # Sort by risk
-    display_df = display_df.sort_values('Default Risk', ascending=False)
-    
-    st.dataframe(
-        display_df,
-        use_container_width=True,
-        height=400
-    )
-    
-    # Footer stats
-    st.markdown("---")
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("📊 Dataset Size", f"{len(df):,} records")
-    with col2:
-        st.metric("🎯 Model Accuracy", "96%")
-    with col3:
-        avg_risk = predictions['default_prob'].mean()
-        st.metric("📈 Average Risk", f"{avg_risk:.1%}")
+        # Summary table
+        st.dataframe(global_df[['Country', 'Immunity_Score', 'Risk_Level']], use_container_width=True)
+        
+    else:
+        st.error("No data available for selected country and year")
 
 if __name__ == "__main__":
     main()
