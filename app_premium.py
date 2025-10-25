@@ -621,15 +621,38 @@ def main():
                 'Risk': get_risk_level(score)[0]
             })
         
-        global_df = pd.DataFrame(global_scores).sort_values('Score')
+        country_to_iso = {
+            "Sri Lanka": "LKA",
+            "Ghana": "GHA",
+            "Zambia": "ZMB",
+            "Kenya": "KEN",
+            "Nigeria": "NGA",
+            "South Africa": "ZAF",
+            "Tanzania": "TZA",
+            "Rwanda": "RWA",
+            "Ethiopia": "ETH",
+            "Angola": "AGO",
+            "Zimbabwe": "ZWE",
+            "Senegal": "SEN",
+            "Uganda": "UGA",
+            "Mali": "MLI",
+            "Burkina Faso": "BFA",
+            "Cameroon": "CMR",
+            "Madagascar": "MDG",
+            "Botswana": "BWA"
+        }
+        
+        global_df = pd.DataFrame(global_scores)
+        global_df['ISO_A3'] = global_df['Country'].map(country_to_iso)
+        global_df = global_df.sort_values('Score')
         
         # World Map
         st.markdown("#### 🗺️ GLOBAL IMMUNITY MAP")
         fig_map = px.choropleth(
             global_df,
-            locations='Country',
+            locations='ISO_A3',
             color='Score',
-            locationmode='country names',
+            locationmode='ISO-3',
             color_continuous_scale=[
                 [0.0, '#ff3366'],
                 [0.5, '#ffaa00'], 
@@ -637,7 +660,7 @@ def main():
             ],
             range_color=[0, 100],
             title="Financial Immunity Scores Worldwide",
-            hover_data={'Risk': True}
+            hover_data={'Risk': True, 'Country': True}
         )
         
         fig_map.update_layout(
